@@ -158,11 +158,13 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         piece.style.color = pieceData.rank > (solution.length / 2) ? '#fff' : '#000';
         piece.innerText = pieceData.label;
 
+        // Desktop Mouse Drag Binding
         piece.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', piece.id);
             recordLatency();
         });
 
+        // Hybrid Screen Tap/Click Selection
         piece.addEventListener('click', (e) => {
             e.stopPropagation(); 
             recordLatency();
@@ -185,6 +187,7 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             }
         });
 
+        // --- MOBILE TOUCH EVENT IMPLEMENTATION ---
         let startX = 0, startY = 0;
 
         piece.addEventListener('touchstart', (e) => {
@@ -209,13 +212,27 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             piece.style.transform = 'none'; 
             
             const touch = e.changedTouches[0];
-            const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
-            const targetSlot = elementAtTouch ? elementAtTouch.closest('.target-slot') : null;
+            const clientX = touch.clientX;
+            const clientY = touch.clientY;
             
-            if (targetSlot && targetSlot.children.length === 0) {
-                const targetIndex = parseInt(targetSlot.dataset.index, 10);
-                targetSlot.appendChild(piece);
-                evaluateSingleMove(piece, targetSlot, targetIndex);
+            // MATH-BOUND COLLISION DETECTION MATRIX:
+            // Loop through slots using bounding rectangles to find the drop point
+            let assignedSlot = null;
+            const currentSlots = targets.querySelectorAll('.target-slot');
+            
+            for (let slot of currentSlots) {
+                const rect = slot.getBoundingClientRect();
+                if (clientX >= rect.left && clientX <= rect.right &&
+                    clientY >= rect.top && clientY <= rect.bottom) {
+                    assignedSlot = slot;
+                    break;
+                }
+            }
+            
+            if (assignedSlot && assignedSlot.children.length === 0) {
+                const targetIndex = parseInt(assignedSlot.dataset.index, 10);
+                assignedSlot.appendChild(piece);
+                evaluateSingleMove(piece, assignedSlot, targetIndex);
                 checkPuzzleState(targets, solution);
             } else {
                 if (!piece.parentElement.classList.contains('target-slot')) {
@@ -249,7 +266,7 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         });
 
         slot.addEventListener('click', (e) => {
-            e.stopPropagation(); // Stop mobile click bubbling bugs instantly
+            e.stopPropagation(); 
             if (currentlySelectedPiece && slot.children.length === 0) {
                 const targetPiece = currentlySelectedPiece;
                 slot.appendChild(targetPiece);
@@ -265,7 +282,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
     });
 }
 
-// 5. RELIABLE EVALUATION LAYER
 function evaluateSingleMove(piece, slot, slotIndex) {
     const pieceValue = parseInt(piece.dataset.value, 10);
     if (pieceValue !== slotIndex) {
@@ -288,8 +304,7 @@ function checkPuzzleState(targetContainer, solution) {
     if (filledCount === solution.length) {
         const isPerfectMatch = currentSequence.every((val, index) => val === index);
         if (isPerfectMatch) {
-            // ASYNC DELAY FIX: Let the browser clear out all lingering click handlers
-            // before tearing down the scene layout canvas.
+            // Safe micro-delay protects the screen transition frame
             setTimeout(() => {
                 currentlySelectedPiece = null;
                 executePuzzleTeardown("completed");
@@ -298,7 +313,7 @@ function checkPuzzleState(targetContainer, solution) {
     }
 }
 
-// Global reset listener targeting container boundaries cleanly
+// Safe layout background clear handler
 document.addEventListener('click', (e) => {
     const isPiece = e.target.classList.contains('puzzle-piece');
     const isSlot = e.target.classList.contains('target-slot');
