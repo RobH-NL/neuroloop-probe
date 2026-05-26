@@ -89,7 +89,6 @@ document.getElementById('btn-start').addEventListener('click', () => {
     sessionData.difficulty_lane = document.getElementById('select-lane').value;
     sessionData.puzzle_archetype = document.getElementById('select-archetype').value;
     
-    // Reset performance vectors for clean iteration runs
     sessionData.incorrect_moves = 0;
     sessionData.resets_used = 0;
     
@@ -147,7 +146,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
     targets.innerHTML = '';
     currentlySelectedPiece = null; 
 
-    // 1. RENDER INTERACTIVE PIECES
     scrambledPieces.forEach((pieceData) => {
         const piece = document.createElement('div');
         piece.className = 'puzzle-piece';
@@ -160,13 +158,11 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         piece.style.color = pieceData.rank > (solution.length / 2) ? '#fff' : '#000';
         piece.innerText = pieceData.label;
 
-        // --- DESKTOP MOUSE DRAG EVENT ---
         piece.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', piece.id);
             recordLatency();
         });
 
-        // --- DESKTOP/MOBILE CLICK-TAP TO SELECT ---
         piece.addEventListener('click', (e) => {
             e.stopPropagation(); 
             recordLatency();
@@ -189,7 +185,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             }
         });
 
-        // --- NATIVE IPAD TOUCH EXPANSION DRAG ENGINE ---
         let startX = 0, startY = 0;
 
         piece.addEventListener('touchstart', (e) => {
@@ -204,22 +199,16 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         piece.addEventListener('touchmove', (e) => {
             if (!piece.classList.contains('dragging')) return;
             const touch = e.touches[0];
-            
-            // Calculate movement offset relative to original layout box anchors
             const deltaX = touch.clientX - startX;
             const deltaY = touch.clientY - startY;
-            
-            // Visually translate the element across coordinate planes smoothly
             piece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
         });
 
         piece.addEventListener('touchend', (e) => {
             piece.classList.remove('dragging');
-            piece.style.transform = 'none'; // Clear position manipulation transform
+            piece.style.transform = 'none'; 
             
             const touch = e.changedTouches[0];
-            
-            // Identify if the finger was released inside an empty target container
             const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
             const targetSlot = elementAtTouch ? elementAtTouch.closest('.target-slot') : null;
             
@@ -229,7 +218,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
                 evaluateSingleMove(piece, targetSlot, targetIndex);
                 checkPuzzleState(targets, solution);
             } else {
-                // Snap piece safely back up if released over invalid coordinates
                 if (!piece.parentElement.classList.contains('target-slot')) {
                     bank.appendChild(piece);
                 }
@@ -240,7 +228,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         bank.appendChild(piece);
     });
 
-    // 2. RENDER EMPTY TARGET PLACEMENT SLOTS
     solution.forEach((_, idx) => {
         const slot = document.createElement('div');
         slot.className = 'target-slot';
@@ -261,7 +248,8 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             }
         });
 
-        slot.addEventListener('click', () => {
+        slot.addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop mobile click bubbling bugs instantly
             if (currentlySelectedPiece && slot.children.length === 0) {
                 const targetPiece = currentlySelectedPiece;
                 slot.appendChild(targetPiece);
@@ -275,11 +263,14 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
 
         targets.appendChild(slot);
     });
-    
-    document.body.onclick = () => {
-        document.querySelectorAll('.puzzle-piece').forEach(p => p.classList.remove('selected'));
-        currentlySelectedPiece = null;
-    };
+}
+
+// 5. RELIABLE EVALUATION LAYER
+function evaluateSingleMove(piece, slot, slotIndex) {
+    const pieceValue = parseInt(piece.dataset.value, 10);
+    if (pieceValue !== slotIndex) {
+        sessionData.incorrect_moves++;
+    }
 }
 
 function checkPuzzleState(targetContainer, solution) {
@@ -297,20 +288,21 @@ function checkPuzzleState(targetContainer, solution) {
     if (filledCount === solution.length) {
         const isPerfectMatch = currentSequence.every((val, index) => val === index);
         if (isPerfectMatch) {
-            // CRITICAL MOBILE TRACKING FIX: Wipe the background handler immediately 
-            // so Safari doesn't execute a volatile state reset on the next screen frame.
-            document.body.onclick = null;
-            currentlySelectedPiece = null;
-            
-            executePuzzleTeardown("completed");
+            // ASYNC DELAY FIX: Let the browser clear out all lingering click handlers
+            // before tearing down the scene layout canvas.
+            setTimeout(() => {
+                currentlySelectedPiece = null;
+                executePuzzleTeardown("completed");
+            }, 50);
         }
     }
 }
 
-// Optimized global background click flusher
-document.body.addEventListener('click', (e) => {
-    // Only deselect if the user actually clicked the empty background canvas wall
-    if (e.target === document.body || e.target.id === 'app-container') {
+// Global reset listener targeting container boundaries cleanly
+document.addEventListener('click', (e) => {
+    const isPiece = e.target.classList.contains('puzzle-piece');
+    const isSlot = e.target.classList.contains('target-slot');
+    if (!isPiece && !isSlot) {
         document.querySelectorAll('.puzzle-piece').forEach(p => p.classList.remove('selected'));
         currentlySelectedPiece = null;
     }
@@ -390,7 +382,7 @@ function calculateSessionDeltas() {
             </div>
         </div>
         <p class="neutral-msg" style="font-size: 0.75rem;">
-            * Treat variations as exploratory functional indicators for within-person trends across blocks. Do not isolate a single run as diagnostic.
+            * Treat variations as exploratory functional indicators for within-person trends across blocks[cite: 315, 317]. Do not isolate a single run as diagnostic[cite: 4, 319].
         </p>
     `;
 }
