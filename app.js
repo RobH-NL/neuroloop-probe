@@ -294,14 +294,27 @@ function checkPuzzleState(targetContainer, solution) {
         }
     });
 
-    // Solve conditional match verification: verify all slots are filled AND ordered perfectly 0 to N-1
     if (filledCount === solution.length) {
         const isPerfectMatch = currentSequence.every((val, index) => val === index);
         if (isPerfectMatch) {
+            // CRITICAL MOBILE TRACKING FIX: Wipe the background handler immediately 
+            // so Safari doesn't execute a volatile state reset on the next screen frame.
+            document.body.onclick = null;
+            currentlySelectedPiece = null;
+            
             executePuzzleTeardown("completed");
         }
     }
 }
+
+// Optimized global background click flusher
+document.body.addEventListener('click', (e) => {
+    // Only deselect if the user actually clicked the empty background canvas wall
+    if (e.target === document.body || e.target.id === 'app-container') {
+        document.querySelectorAll('.puzzle-piece').forEach(p => p.classList.remove('selected'));
+        currentlySelectedPiece = null;
+    }
+});
 
 document.getElementById('btn-reset').addEventListener('click', () => {
     sessionData.resets_used++;
