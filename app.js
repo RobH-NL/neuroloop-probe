@@ -147,6 +147,7 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
     targets.innerHTML = '';
     currentlySelectedPiece = null; 
 
+    // 1. RENDER INTERACTIVE PIECES
     scrambledPieces.forEach((pieceData) => {
         const piece = document.createElement('div');
         piece.className = 'puzzle-piece';
@@ -159,11 +160,13 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         piece.style.color = pieceData.rank > (solution.length / 2) ? '#fff' : '#000';
         piece.innerText = pieceData.label;
 
+        // --- DESKTOP MOUSE DRAG EVENT ---
         piece.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', piece.id);
             recordLatency();
         });
 
+        // --- DESKTOP/MOBILE CLICK-TAP TO SELECT ---
         piece.addEventListener('click', (e) => {
             e.stopPropagation(); 
             recordLatency();
@@ -186,9 +189,58 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             }
         });
 
+        // --- NATIVE IPAD TOUCH EXPANSION DRAG ENGINE ---
+        let startX = 0, startY = 0;
+
+        piece.addEventListener('touchstart', (e) => {
+            recordLatency();
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+            piece.classList.add('dragging');
+            currentlySelectedPiece = piece;
+        }, { passive: true });
+
+        piece.addEventListener('touchmove', (e) => {
+            if (!piece.classList.contains('dragging')) return;
+            const touch = e.touches[0];
+            
+            // Calculate movement offset relative to original layout box anchors
+            const deltaX = touch.clientX - startX;
+            const deltaY = touch.clientY - startY;
+            
+            // Visually translate the element across coordinate planes smoothly
+            piece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        });
+
+        piece.addEventListener('touchend', (e) => {
+            piece.classList.remove('dragging');
+            piece.style.transform = 'none'; // Clear position manipulation transform
+            
+            const touch = e.changedTouches[0];
+            
+            // Identify if the finger was released inside an empty target container
+            const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetSlot = elementAtTouch ? elementAtTouch.closest('.target-slot') : null;
+            
+            if (targetSlot && targetSlot.children.length === 0) {
+                const targetIndex = parseInt(targetSlot.dataset.index, 10);
+                targetSlot.appendChild(piece);
+                evaluateSingleMove(piece, targetSlot, targetIndex);
+                checkPuzzleState(targets, solution);
+            } else {
+                // Snap piece safely back up if released over invalid coordinates
+                if (!piece.parentElement.classList.contains('target-slot')) {
+                    bank.appendChild(piece);
+                }
+            }
+            currentlySelectedPiece = null;
+        });
+
         bank.appendChild(piece);
     });
 
+    // 2. RENDER EMPTY TARGET PLACEMENT SLOTS
     solution.forEach((_, idx) => {
         const slot = document.createElement('div');
         slot.className = 'target-slot';
@@ -204,7 +256,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
                 slot.appendChild(piece);
                 piece.classList.remove('selected');
                 
-                // Track item drop parameters instantly
                 evaluateSingleMove(piece, slot, idx);
                 checkPuzzleState(targets, solution);
             }
@@ -229,15 +280,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         document.querySelectorAll('.puzzle-piece').forEach(p => p.classList.remove('selected'));
         currentlySelectedPiece = null;
     };
-}
-
-// 5. ISOLATED TRANSACTION EVALUATION LAYER
-function evaluateSingleMove(piece, slot, slotIndex) {
-    const pieceValue = parseInt(piece.dataset.value, 10);
-    // If the dropped item ID doesn't equal the slot matrix location index, log an error transaction step
-    if (pieceValue !== slotIndex) {
-        sessionData.incorrect_moves++;
-    }
 }
 
 function checkPuzzleState(targetContainer, solution) {
