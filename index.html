@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroLoop Functional Probe</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app-container">
+        <section id="screen-setup" class="screen active">
+            <h2>Probe Configuration</h2>
+            <div class="form-group">
+                <label>Puzzle Archetype:</label>
+                <select id="select-archetype">
+                    <option value="gradient_numbers">Gradient Numbers (0, 1, 2...)</option>
+                    <option value="alphabet_sequence">Alphabetical Blocks (A, B, C...)</option>
+                    <option value="multiplication_matrix">Multiplication Paths (2x, 3x...)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Participant ID:</label>
+                <input type="text" id="input-participant" value="P-001">
+            </div>
+            <div class="form-group">
+                <label>Session ID:</label>
+                <input type="text" id="input-session" value="S-001">
+            </div>
+            <div class="form-group">
+                <label>Phase:</label>
+                <select id="select-phase">
+                    <option value="pre">Pre-Session</option>
+                    <option value="post">Post-Session</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Difficulty Lane:</label>
+                <select id="select-lane">
+                    <option value="easy">Easy (3 Pieces)</option>
+                    <option value="medium" selected>Medium (5 Pieces)</option>
+                    <option value="hard">Hard (7 Pieces)</option>
+                </select>
+            </div>
+            <button id="btn-start" class="btn">Initialize Probe</button>
+        </section>
+
+        <section id="screen-puzzle" class="screen">
+            <header class="probe-meta">
+                <span id="meta-display">P-001 | S-001 | Pre</span>
+            </header>
+            
+            <div id="puzzle-zone">
+                <span class="zone-label">Your Pieces (Tap to select)</span>
+                <div id="scramble-bank" class="piece-container"></div>
+                
+                <span class="zone-label">Target Slots (Tap empty slot to place)</span>
+                <div id="target-slots" class="piece-container"></div>
+            </div>
+
+            <footer class="probe-controls">
+                <button id="btn-reset" class="btn secondary">Reset Puzzle</button>
+            </footer>
+        </section>
+
+        <section id="screen-solved" class="screen">
+            <h2>Task Complete</h2>
+            <p class="neutral-msg">Performance telemetry successfully committed to local storage.</p>
+            <div id="telemetry-summary"></div>
+            <div id="analytics-dashboard">
+                <h3>Session Performance Delta</h3>
+                <div id="delta-metrics-grid">
+                    <p class="neutral-msg">Complete both Pre and Post phases for this session ID to view structural performance deltas.</p>
+                </div>
+            </div>
+            <button id="btn-export" class="btn">Export Session Data (JSON)</button>
+            <button id="btn-restart" class="btn secondary">Next Session Block</button>
+        </section>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

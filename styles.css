@@ -1,0 +1,188 @@
+:root {
+    --bg-main: #1a202c;
+    --bg-surface: #2d3748;
+    --text-main: #edf2f7;
+    --text-muted: #a0aec0;
+    --border-color: #4a5568;
+    --accent: #4a5568;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#app-container {
+    width: 100%;
+    max-width: 600px;
+    padding: 24px;
+    background: var(--bg-surface);
+    border-radius: 4px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+input, select {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: #4a5568;
+    color: var(--text-main);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border-color);
+}
+
+.piece-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 24px 0;
+    min-height: 60px;
+}
+
+.puzzle-piece {
+    width: 50px;
+    height: 50px;
+    border: 1px solid var(--border-color);
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    user-select: none;
+    background-color: var(--bg-main);
+}
+
+.target-slot {
+    width: 50px;
+    height: 50px;
+    border: 2px dashed var(--border-color);
+    box-sizing: border-box;
+}
+
+.probe-meta {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+#analytics-dashboard {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 2px solid var(--border-color);
+    text-align: left;
+}
+
+#analytics-dashboard h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--text-main);
+}
+
+.delta-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.delta-card {
+    background: var(--bg-main);
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.delta-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.delta-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.delta-value.improvement {
+    color: #68d391; /* Soft green, non-flashing indicator */
+}
+
+.delta-value.regression {
+    color: #fc8181; /* Soft muted red indicator */
+}
+
+.delta-value.stable {
+    color: var(--text-main);
+}
+
+.neutral-msg {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+/* Muted highlight border for touch selection feedback */
+.puzzle-piece.selected {
+    outline: 2px solid var(--text-main);
+    box-shadow: 0 0 8px rgba(237, 242, 247, 0.4);
+    transform: scale(1.05);
+}
+
+/* Ensure smooth pointer event matching for deep DOM nodes */
+.puzzle-piece * {
+    pointer-events: none;
+}
+.zone-label {
+    display: block;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 12px;
+}
