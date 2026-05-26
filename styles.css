@@ -186,3 +186,20 @@ input, select {
     letter-spacing: 0.05em;
     margin-top: 12px;
 }
+.puzzle-piece {
+    /* ... keeps existing styles ... */
+    
+    /* CRITICAL MOBILE FIX: Stop iOS Safari from stealing finger dragging gestures */
+    touch-action: none; 
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative; /* Allows physical floating offset overrides */
+    z-index: 10;
+}
+
+/* Add a visual sorting priority state when physically dragging on touch screens */
+.puzzle-piece.dragging {
+    opacity: 0.7;
+    z-index: 100;
+    pointer-events: none; /* Prevents collision interference during element detection */
+}
