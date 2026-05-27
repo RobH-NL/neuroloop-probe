@@ -57,41 +57,58 @@ function switchScreen(screenId) {
 
 function showQuestionnaire(phase) {
     currentPhase = phase;
-    document.getElementById('questionnaire-title').innerText = phase === 'pre' ? 'Pre-Session Baseline' : 'Post-Session Check-in';
     
-    const container = document.getElementById('questions-container');
+    // Set the title
+    const titleEl = document.getElementById('questionnaire-title');
+    if (titleEl) {
+        titleEl.innerText = phase === 'pre' ? 'Pre-Session Baseline' : 'Post-Session Check-in';
+    }
+    
+    // DEFENSIVE HTML CHECK: Look for the container, build it if it is missing
+    let container = document.getElementById('questions-container');
+    if (!container) {
+        console.warn("Neuroloop: 'questions-container' was missing from HTML. Auto-generating it.");
+        container = document.createElement('div');
+        container.id = 'questions-container';
+        const submitBtn = document.getElementById('btn-submit-questions');
+        if (submitBtn) {
+            submitBtn.parentNode.insertBefore(container, submitBtn);
+        } else {
+            console.error("Neuroloop: Critical UI failure. 'btn-submit-questions' also missing. Check index.html.");
+            alert("Critical UI Error: Questionnaire HTML is missing. Please check your index.html file.");
+            return; // Stop execution to prevent a crash
+        }
+    }
+    
+    // Clear out previous renders
     container.innerHTML = ''; 
 
+    // Build the sliders natively in the DOM to prevent injection rejection
     questionnaireMatrix.forEach(q => {
-        // 1. Build the wrapper block
         const block = document.createElement('div');
         block.className = 'question-block';
         block.style.marginBottom = '20px';
-        block.style.color = '#ffffff'; // Force text to be highly visible
+        block.style.color = '#ffffff'; 
 
-        // 2. Build the label
         const label = document.createElement('label');
         label.style.display = 'block';
         label.style.marginBottom = '5px';
         label.innerText = q.label;
         block.appendChild(label);
 
-        // 3. Build the flex container for the slider and number
         const flex = document.createElement('div');
         flex.style.display = 'flex';
         flex.style.alignItems = 'center';
         flex.style.gap = '10px';
 
-        // 4. Build the actual slider input
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.id = `q_${q.id}`;
         slider.min = q.min;
         slider.max = q.max;
-        slider.value = 3; // Default starting position
+        slider.value = 3; 
         slider.style.flexGrow = '1';
         
-        // 5. Build the text display that shows the current slider value
         const valSpan = document.createElement('span');
         valSpan.id = `val_${q.id}`;
         valSpan.style.fontWeight = 'bold';
@@ -99,13 +116,11 @@ function showQuestionnaire(phase) {
         valSpan.style.textAlign = 'center';
         valSpan.innerText = '3';
 
-        // 6. Assemble the pieces like Lego blocks
         flex.appendChild(slider);
         flex.appendChild(valSpan);
         block.appendChild(flex);
         container.appendChild(block);
 
-        // 7. Attach the live-updating listener directly to the built element
         slider.addEventListener('input', (e) => {
             valSpan.innerText = e.target.value;
         });
@@ -116,14 +131,15 @@ function showQuestionnaire(phase) {
 }
 
 document.getElementById('btn-submit-questions').addEventListener('click', () => {
-    // Calculate duration independently to protect your spatial latency metrics
     const duration = performance.now() - questionStartTime;
     sessionData.survey_duration_ms = (sessionData.survey_duration_ms || 0) + duration;
 
-    // Map inputs to the JSON buffer dynamically
     const answers = {};
     questionnaireMatrix.forEach(q => {
-        answers[q.id] = parseInt(document.getElementById(`q_${q.id}`).value, 10);
+        const slider = document.getElementById(`q_${q.id}`);
+        if (slider) {
+            answers[q.id] = parseInt(slider.value, 10);
+        }
     });
 
     if (currentPhase === 'pre') {
@@ -176,10 +192,8 @@ const ArchetypeGenerators = {
 
 // 4. CORE PUZZLE LIFECYCLE CONTROLLER
 
-// The Start button now correctly routes to the Pre-Session Questionnaire
 document.getElementById('btn-start').addEventListener('click', () => showQuestionnaire('pre'));
 
-// The puzzle initialization logic is safely wrapped in its own function
 function executePuzzleStart() {
     sessionData.participant_id = document.getElementById('input-participant').value;
     sessionData.session_id = document.getElementById('input-session').value;
