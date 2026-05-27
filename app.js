@@ -14,6 +14,19 @@ let sessionData = {
     completion_status: "abandoned"
 };
 
+// --- QUESTIONNAIRE CONFIGURATION ---
+
+// 1. The Matrix: Edit your questions, labels, and scales here.
+const questionnaireMatrix = [
+    { id: "mind_state", label: "Mind State (1: Calm, 5: Racing)", min: 1, max: 5 },
+    { id: "body_tension", label: "Body Tension (1: Relaxed, 5: Tense)", min: 1, max: 5 },
+    { id: "energy_level", label: "Energy Level (1: Exhausted, 5: Energized)", min: 1, max: 5 }
+];
+
+// 2. State Variables: These keep track of the timing and the current phase.
+let questionStartTime = 0;
+let currentPhase = 'pre'; 
+
 let firstMoveLatencyRecorded = false;
 let startTime = null;
 
@@ -41,6 +54,54 @@ function switchScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
 }
+
+function showQuestionnaire(phase) {
+    currentPhase = phase;
+    document.getElementById('questionnaire-title').innerText = phase === 'pre' ? 'Pre-Session Baseline' : 'Post-Session Check-in';
+    
+    const container = document.getElementById('questions-container');
+    container.innerHTML = ''; 
+
+    questionnaireMatrix.forEach(q => {
+        const html = `
+            <div class="question-block" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px;">${q.label}</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="q_${q.id}" min="${q.min}" max="${q.max}" value="3" style="flex-grow: 1;">
+                    <span id="val_${q.id}" style="font-weight: bold; width: 20px; text-align: center;">3</span>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+
+        document.getElementById(`q_${q.id}`).addEventListener('input', (e) => {
+            document.getElementById(`val_${q.id}`).innerText = e.target.value;
+        });
+    });
+
+    switchScreen('screen-questions'); 
+    questionStartTime = performance.now();
+}
+
+document.getElementById('btn-submit-questions').addEventListener('click', () => {
+    // Calculate duration independently to protect your spatial latency metrics
+    const duration = performance.now() - questionStartTime;
+    sessionData.survey_duration_ms = (sessionData.survey_duration_ms || 0) + duration;
+
+    // Map inputs to the JSON buffer dynamically
+    const answers = {};
+    questionnaireMatrix.forEach(q => {
+        answers[q.id] = parseInt(document.getElementById(`q_${q.id}`).value, 10);
+    });
+
+    if (currentPhase === 'pre') {
+        sessionData.baseline_questions_pre = answers;
+        executePuzzleStart(); 
+    } else {
+        sessionData.baseline_questions_post = answers;
+        switchScreen('screen-solved'); 
+    }
+});
 
 // 3. ARCHETYPE GENERATION REGISTRY
 const ArchetypeGenerators = {
@@ -82,7 +143,12 @@ const ArchetypeGenerators = {
 };
 
 // 4. CORE PUZZLE LIFECYCLE CONTROLLER
-document.getElementById('btn-start').addEventListener('click', () => {
+
+// The Start button now correctly routes to the Pre-Session Questionnaire
+document.getElementById('btn-start').addEventListener('click', () => showQuestionnaire('pre'));
+
+// The puzzle initialization logic is safely wrapped in its own function
+function executePuzzleStart() {
     sessionData.participant_id = document.getElementById('input-participant').value;
     sessionData.session_id = document.getElementById('input-session').value;
     sessionData.probe_phase = document.getElementById('select-phase').value;
@@ -101,7 +167,7 @@ document.getElementById('btn-start').addEventListener('click', () => {
     sessionData.puzzle_seed = baseSeed;
 
     initializePuzzle();
-});
+}
 
 function initializePuzzle() {
     const lane = sessionData.difficulty_lane;
@@ -158,13 +224,11 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
         piece.style.color = pieceData.rank > (solution.length / 2) ? '#fff' : '#000';
         piece.innerText = pieceData.label;
 
-        // Desktop Mouse Drag Binding
         piece.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', piece.id);
             recordLatency();
         });
 
-        // Hybrid Screen Tap/Click Selection
         piece.addEventListener('click', (e) => {
             e.stopPropagation(); 
             recordLatency();
@@ -187,7 +251,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             }
         });
 
-        // --- MOBILE TOUCH EVENT IMPLEMENTATION ---
         let startX = 0, startY = 0;
 
         piece.addEventListener('touchstart', (e) => {
@@ -215,8 +278,6 @@ function renderGameboard(scrambledPieces, displayValues, solution) {
             const clientX = touch.clientX;
             const clientY = touch.clientY;
             
-            // MATH-BOUND COLLISION DETECTION MATRIX:
-            // Loop through slots using bounding rectangles to find the drop point
             let assignedSlot = null;
             const currentSlots = targets.querySelectorAll('.target-slot');
             
@@ -304,7 +365,6 @@ function checkPuzzleState(targetContainer, solution) {
     if (filledCount === solution.length) {
         const isPerfectMatch = currentSequence.every((val, index) => val === index);
         if (isPerfectMatch) {
-            // Safe micro-delay protects the screen transition frame
             setTimeout(() => {
                 currentlySelectedPiece = null;
                 executePuzzleTeardown("completed");
@@ -313,7 +373,6 @@ function checkPuzzleState(targetContainer, solution) {
     }
 }
 
-// Safe layout background clear handler
 document.addEventListener('click', (e) => {
     const isPiece = e.target.classList.contains('puzzle-piece');
     const isSlot = e.target.classList.contains('target-slot');
@@ -341,7 +400,9 @@ function executePuzzleTeardown(status) {
     `;
     
     calculateSessionDeltas();
-    switchScreen('screen-solved');
+    
+    // Once the puzzle tears down, route to the Post-Session Questionnaire!
+    showQuestionnaire('post');
 }
 
 function calculateSessionDeltas() {
@@ -397,7 +458,7 @@ function calculateSessionDeltas() {
             </div>
         </div>
         <p class="neutral-msg" style="font-size: 0.75rem;">
-            * Treat variations as exploratory functional indicators for within-person trends across blocks[cite: 315, 317]. Do not isolate a single run as diagnostic[cite: 4, 319].
+            * Treat variations as exploratory functional indicators for within-person trends across blocks. Do not isolate a single run as diagnostic.
         </p>
     `;
 }
