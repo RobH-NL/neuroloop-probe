@@ -63,19 +63,51 @@ function showQuestionnaire(phase) {
     container.innerHTML = ''; 
 
     questionnaireMatrix.forEach(q => {
-        const html = `
-            <div class="question-block" style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px;">${q.label}</label>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="range" id="q_${q.id}" min="${q.min}" max="${q.max}" value="3" style="flex-grow: 1;">
-                    <span id="val_${q.id}" style="font-weight: bold; width: 20px; text-align: center;">3</span>
-                </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', html);
+        // 1. Build the wrapper block
+        const block = document.createElement('div');
+        block.className = 'question-block';
+        block.style.marginBottom = '20px';
+        block.style.color = '#ffffff'; // Force text to be highly visible
 
-        document.getElementById(`q_${q.id}`).addEventListener('input', (e) => {
-            document.getElementById(`val_${q.id}`).innerText = e.target.value;
+        // 2. Build the label
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.marginBottom = '5px';
+        label.innerText = q.label;
+        block.appendChild(label);
+
+        // 3. Build the flex container for the slider and number
+        const flex = document.createElement('div');
+        flex.style.display = 'flex';
+        flex.style.alignItems = 'center';
+        flex.style.gap = '10px';
+
+        // 4. Build the actual slider input
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.id = `q_${q.id}`;
+        slider.min = q.min;
+        slider.max = q.max;
+        slider.value = 3; // Default starting position
+        slider.style.flexGrow = '1';
+        
+        // 5. Build the text display that shows the current slider value
+        const valSpan = document.createElement('span');
+        valSpan.id = `val_${q.id}`;
+        valSpan.style.fontWeight = 'bold';
+        valSpan.style.width = '20px';
+        valSpan.style.textAlign = 'center';
+        valSpan.innerText = '3';
+
+        // 6. Assemble the pieces like Lego blocks
+        flex.appendChild(slider);
+        flex.appendChild(valSpan);
+        block.appendChild(flex);
+        container.appendChild(block);
+
+        // 7. Attach the live-updating listener directly to the built element
+        slider.addEventListener('input', (e) => {
+            valSpan.innerText = e.target.value;
         });
     });
 
