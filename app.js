@@ -51,8 +51,20 @@ function lcgRandom(seed) {
 }
 
 function switchScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(screenId).classList.add('active');
+    // 1. Explicitly hide all screens by setting display to 'none'
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none'; 
+    });
+
+    // 2. Explicitly show the target screen
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) {
+        targetScreen.classList.add('active');
+        targetScreen.style.display = 'block'; 
+    } else {
+        console.error(`Neuroloop: Could not find screen with ID ${screenId}`);
+    }
 }
 
 function showQuestionnaire(phase) {
