@@ -18,9 +18,11 @@ let sessionData = {
 
 // 1. The Matrix: Edit your questions, labels, and scales here.
 const questionnaireMatrix = [
-    { id: "mind_state", label: "Mind State (1: Calm, 5: Racing)", min: 1, max: 5 },
-    { id: "body_tension", label: "Body Tension (1: Relaxed, 5: Tense)", min: 1, max: 5 },
-    { id: "energy_level", label: "Energy Level (1: Exhausted, 5: Energized)", min: 1, max: 5 }
+    { id: "mind_state", label: "Mind State (1: Calm, 5: Racing)", min: 1, max: 5, type: "range" },
+    { id: "body_tension", label: "Body Tension (1: Relaxed, 5: Tense)", min: 1, max: 5, type: "range" },
+    { id: "energy_level", label: "Energy Level (1: Exhausted, 5: Energized)", min: 1, max: 5, type: "range" },
+    { id: "substance_intake", label: "Stimulants/Nicotine/Caffeine (Past 4 hrs)?", type: "toggle" },
+    { id: "session_intent", label: "Session Intent (Focus Goal)", type: "text" }
 ];
 
 // 2. State Variables: These keep track of the timing and the current phase.
@@ -96,64 +98,71 @@ function showQuestionnaire(phase) {
     container.innerHTML = ''; 
 
     // Build the sliders natively in the DOM to prevent injection rejection
-    questionnaireMatrix.forEach(q => {
+ questionnaireMatrix.forEach(q => {
         const block = document.createElement('div');
         block.className = 'question-block';
-        block.style.marginBottom = '20px';
-        block.style.color = '#ffffff'; 
+        block.style.marginBottom = '24px';
+        block.style.display = 'flex';
+        block.style.flexDirection = 'column';
+        block.style.alignItems = 'center';
+        block.style.color = '#ffffff';
 
         const label = document.createElement('label');
-        label.style.display = 'block';
-        label.style.marginBottom = '5px';
+        label.style.marginBottom = '8px';
         label.innerText = q.label;
         block.appendChild(label);
 
-        const flex = document.createElement('div');
-        flex.style.display = 'flex';
-        flex.style.alignItems = 'center';
-        flex.style.gap = '10px';
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.id = `q_${q.id}`;
-        slider.min = q.min;
-        slider.max = q.max;
-        slider.value = 3; 
-        slider.style.flexGrow = '1';
-        
-        const valSpan = document.createElement('span');
-        valSpan.id = `val_${q.id}`;
-        valSpan.style.fontWeight = 'bold';
-        valSpan.style.width = '20px';
-        valSpan.style.textAlign = 'center';
-        valSpan.innerText = '3';
-
-        flex.appendChild(slider);
-        flex.appendChild(valSpan);
-        block.appendChild(flex);
+        if (q.type === "range") {
+            const flex = document.createElement('div');
+            flex.style.display = 'flex'; flex.style.gap = '15px'; flex.style.width = '100%'; flex.style.maxWidth = '300px';
+            const slider = document.createElement('input');
+            slider.type = 'range'; slider.id = `q_${q.id}`; slider.min = q.min; slider.max = q.max; slider.value = 3; slider.style.width = '100%';
+            const valSpan = document.createElement('span'); valSpan.id = `val_${q.id}`; valSpan.innerText = '3';
+            flex.appendChild(slider); flex.appendChild(valSpan);
+            block.appendChild(flex);
+            slider.addEventListener('input', (e) => valSpan.innerText = e.target.value);
+        } 
+        else if (q.type === "toggle") {
+            const toggle = document.createElement('input');
+            toggle.type = 'checkbox'; toggle.id = `q_${q.id}`;
+            toggle.style.width = '30px'; toggle.style.height = '30px';
+            block.appendChild(toggle);
+        } 
+        else if (q.type === "text") {
+            const textarea = document.createElement('textarea');
+            textarea.id = `q_${q.id}`; textarea.rows = 3;
+            textarea.style.width = '100%'; textarea.style.maxWidth = '300px'; textarea.style.padding = '8px';
+            block.appendChild(textarea);
+        }
         container.appendChild(block);
-
-        slider.addEventListener('input', (e) => {
-            valSpan.innerText = e.target.value;
-        });
     });
 
     switchScreen('screen-questions'); 
     questionStartTime = performance.now();
 }
 
+// --- STEP 3: UPDATED SUBMISSION LOGIC ---
 document.getElementById('btn-submit-questions').addEventListener('click', () => {
+    // 1. Calculate duration independently
     const duration = performance.now() - questionStartTime;
     sessionData.survey_duration_ms = (sessionData.survey_duration_ms || 0) + duration;
 
+    // 2. Map inputs to the JSON buffer dynamically based on type
     const answers = {};
     questionnaireMatrix.forEach(q => {
-        const slider = document.getElementById(`q_${q.id}`);
-        if (slider) {
-            answers[q.id] = parseInt(slider.value, 10);
+        const el = document.getElementById(`q_${q.id}`);
+        if (!el) return; // Safety check
+
+        if (q.type === "toggle") {
+            answers[q.id] = el.checked; // Returns true/false
+        } else if (q.type === "range") {
+            answers[q.id] = parseInt(el.value, 10); // Returns number
+        } else {
+            answers[q.id] = el.value; // Returns string (for text area)
         }
     });
 
+    // 3. Save to the correct phase buffer
     if (currentPhase === 'pre') {
         sessionData.baseline_questions_pre = answers;
         executePuzzleStart(); 
