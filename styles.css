@@ -203,3 +203,12 @@ input, select {
     z-index: 100;
     pointer-events: none; /* Prevents collision interference during element detection */
 }
+/* Remove text-input styling from range sliders */
+input[type="range"] {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    margin: 8px 0;
+    cursor: pointer;
+}
