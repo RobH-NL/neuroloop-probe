@@ -444,6 +444,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     sessionData.resets_used++;
     initializePuzzle();
 });
+// Add this near your other initialization code
+document.getElementById('version-display').innerText = "v1.0.2 (Hinge-Beta)";
 
 function executePuzzleTeardown(status) {
     sessionData.timestamp_end = new Date().toISOString();
