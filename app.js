@@ -1,4 +1,5 @@
 // 1. GLOBAL TELEMETRY BUFFER
+// 1. GLOBAL TELEMETRY BUFFER
 let sessionData = {
     session_id: "",
     participant_id: "",
@@ -240,6 +241,24 @@ function executePuzzleStart() {
     sessionData.resets_used = 0;
     sessionData.survey_duration_ms = sessionData.probe_phase === 'post' ? 0 : sessionData.survey_duration_ms;
     
+    // --- NEW: LINK PRE-SESSION DATA TO POST-SESSION RUNS ---
+    if (sessionData.probe_phase === 'post') {
+        // Look up the corresponding pre-session run in storage
+        const preKey = `probe_${sessionData.participant_id}_${sessionData.session_id}_pre`;
+        const preRawData = localStorage.getItem(preKey);
+        
+        if (preRawData) {
+            try {
+                const preDataParsed = JSON.parse(preRawData);
+                // Pull the baseline survey data forward into the active session block
+                sessionData.baseline_questions_pre = preDataParsed.baseline_questions_pre;
+            } catch (e) {
+                console.error("Neuroloop: Failed to parse historical baseline indicators.", e);
+            }
+        }
+    }
+    // --------------------------------------------------------
+
     const basePairString = `${sessionData.participant_id}_${sessionData.session_id}_${sessionData.puzzle_archetype}`;
     let baseSeed = getSeedFromString(basePairString) % 2147483647;
     
