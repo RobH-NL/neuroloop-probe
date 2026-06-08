@@ -11,21 +11,23 @@ let sessionData = {
     completion_time_ms: 0,
     incorrect_moves: 0,
     resets_used: 0,
-    completion_status: "abandoned"
+    completion_status: "abandoned",
+    first_move_latency_ms: 0,
+    survey_duration_ms: 0,
+    baseline_questions_pre: null,  // FIXED: Explicit structural paths for compiler JSON serialization
+    baseline_questions_post: null  // FIXED: Explicit structural paths for compiler JSON serialization
 };
 
 // --- QUESTIONNAIRE CONFIGURATION ---
 
-// 1. The Matrix: Edit your questions, labels, and scales here.
 const questionnaireMatrix = [
     { id: "mind_state", label: "Mind State (1: Calm, 5: Racing)", min: 1, max: 5, type: "range" },
     { id: "body_tension", label: "Body Tension (1: Relaxed, 5: Tense)", min: 1, max: 5, type: "range" },
     { id: "energy_level", label: "Energy Level (1: Exhausted, 5: Energized)", min: 1, max: 5, type: "range" },
     { id: "substance_intake", label: "Stimulants/Nicotine/Caffeine (Past 4 hrs)?", type: "toggle" },
-    { id: "session_intent", label: "Session Intent (Focus Goal)", type: "text" }
+    { id: "session_intent", label: "Session Intent (Focus Goal)", type: "text" } // Conditionally stripped out on Post-phase
 ];
 
-// 2. State Variables: These keep track of the timing and the current phase.
 let questionStartTime = 0;
 let currentPhase = 'pre'; 
 
@@ -53,13 +55,11 @@ function lcgRandom(seed) {
 }
 
 function switchScreen(screenId) {
-    // 1. Explicitly hide all screens by setting display to 'none'
     document.querySelectorAll('.screen').forEach(s => {
         s.classList.remove('active');
         s.style.display = 'none'; 
     });
 
-    // 2. Explicitly show the target screen
     const targetScreen = document.getElementById(screenId);
     if (targetScreen) {
         targetScreen.classList.add('active');
@@ -72,13 +72,12 @@ function switchScreen(screenId) {
 function showQuestionnaire(phase) {
     currentPhase = phase;
     
-    // Set the title
-    const titleEl = document.getElementById('questionnaire-title');
+    // Dynamically manipulate UI Titles based on Phase Routing context
+    const titleEl = document.querySelector('#screen-questions h2');
     if (titleEl) {
-        titleEl.innerText = phase === 'pre' ? 'Pre-Session Baseline' : 'Post-Session Check-in';
+        titleEl.innerText = phase === 'pre' ? 'Pre-Session Baseline Check-in' : 'Post-Session Checkout';
     }
     
-    // DEFENSIVE HTML CHECK: Look for the container, build it if it is missing
     let container = document.getElementById('questions-container');
     if (!container) {
         console.warn("Neuroloop: 'questions-container' was missing from HTML. Auto-generating it.");
@@ -88,17 +87,18 @@ function showQuestionnaire(phase) {
         if (submitBtn) {
             submitBtn.parentNode.insertBefore(container, submitBtn);
         } else {
-            console.error("Neuroloop: Critical UI failure. 'btn-submit-questions' also missing. Check index.html.");
-            alert("Critical UI Error: Questionnaire HTML is missing. Please check your index.html file.");
-            return; // Stop execution to prevent a crash
+            return;
         }
     }
     
-    // Clear out previous renders
     container.innerHTML = ''; 
 
-    // Build the sliders natively in the DOM to prevent injection rejection
- questionnaireMatrix.forEach(q => {
+    questionnaireMatrix.forEach(q => {
+        // FIXED: Do not render or evaluate the "session_intent" (Intent field) if evaluating Post-Session profile
+        if (phase === 'post' && q.id === 'session_intent') {
+            return;
+        }
+
         const block = document.createElement('div');
         block.className = 'question-block';
         block.style.marginBottom = '24px';
@@ -141,33 +141,39 @@ function showQuestionnaire(phase) {
     questionStartTime = performance.now();
 }
 
-// --- STEP 3: UPDATED SUBMISSION LOGIC ---
+// --- SUBMISSION ROUTER LOGIC ---
 document.getElementById('btn-submit-questions').addEventListener('click', () => {
-    // 1. Calculate duration independently
     const duration = performance.now() - questionStartTime;
     sessionData.survey_duration_ms = (sessionData.survey_duration_ms || 0) + duration;
 
-    // 2. Map inputs to the JSON buffer dynamically based on type
     const answers = {};
     questionnaireMatrix.forEach(q => {
+        // Skip extraction for layout entities omitted in post conditions
+        if (currentPhase === 'post' && q.id === 'session_intent') return;
+
         const el = document.getElementById(`q_${q.id}`);
-        if (!el) return; // Safety check
+        if (!el) return;
 
         if (q.type === "toggle") {
-            answers[q.id] = el.checked; // Returns true/false
+            answers[q.id] = el.checked;
         } else if (q.type === "range") {
-            answers[q.id] = parseInt(el.value, 10); // Returns number
+            answers[q.id] = parseInt(el.value, 10);
         } else {
-            answers[q.id] = el.value; // Returns string (for text area)
+            answers[q.id] = el.value;
         }
     });
 
-    // 3. Save to the correct phase buffer
     if (currentPhase === 'pre') {
         sessionData.baseline_questions_pre = answers;
         executePuzzleStart(); 
     } else {
         sessionData.baseline_questions_post = answers;
+        // Commit finalized array tracking with both questions saved down to memory
+        const runKey = `probe_${sessionData.participant_id}_${sessionData.session_id}_${sessionData.probe_phase}`;
+        localStorage.setItem(runKey, JSON.stringify({...sessionData}));
+        
+        // Render view telemetry text explicitly down on targets before flipping view
+        document.getElementById('telemetry-summary').innerHTML = `<pre>${JSON.stringify(sessionData, null, 2)}</pre>`;
         switchScreen('screen-solved'); 
     }
 });
@@ -181,28 +187,22 @@ const ArchetypeGenerators = {
             displayValues: solution.map(v => ({ id: v, label: String(v), rank: v }))
         };
     },
-
     alphabet_sequence: function(size, nextRand) {
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         const maxStartIndex = alphabet.length - size;
         const startIndex = Math.floor(nextRand() * (maxStartIndex + 1));
-        
         let displayValues = [];
         let solution = [];
-        
         for (let i = 0; i < size; i++) {
             solution.push(i);
             displayValues.push({ id: i, label: alphabet[startIndex + i], rank: i });
         }
         return { solution, displayValues };
     },
-
     multiplication_matrix: function(size, nextRand) {
         const scalar = Math.floor(nextRand() * 8) + 2;
-        
         let displayValues = [];
         let solution = [];
-        
         for (let i = 1; i <= size; i++) {
             solution.push(i - 1);
             displayValues.push({ id: i - 1, label: String(i * scalar), rank: i - 1 });
@@ -211,9 +211,23 @@ const ArchetypeGenerators = {
     }
 };
 
-// 4. CORE PUZZLE LIFECYCLE CONTROLLER
+// 4. CORE LIFECYCLE CONTROLLER
 
-document.getElementById('btn-start').addEventListener('click', () => showQuestionnaire('pre'));
+// INITIAL RUN FLOW TRIGGER
+document.getElementById('btn-start').addEventListener('click', () => {
+    const selectedPhase = document.getElementById('select-phase').value;
+    
+    // FIXED: Form Setup Verification Context Engine.
+    // Pre-Session needs baseline data processing; Post-Session skips initial onboarding completely.
+    if (selectedPhase === 'pre') {
+        showQuestionnaire('pre');
+    } else {
+        // Clear old structural flags from buffer memory array mapping definitions
+        sessionData.baseline_questions_pre = null;
+        sessionData.baseline_questions_post = null;
+        executePuzzleStart();
+    }
+});
 
 function executePuzzleStart() {
     sessionData.participant_id = document.getElementById('input-participant').value;
@@ -224,6 +238,7 @@ function executePuzzleStart() {
     
     sessionData.incorrect_moves = 0;
     sessionData.resets_used = 0;
+    sessionData.survey_duration_ms = sessionData.probe_phase === 'post' ? 0 : sessionData.survey_duration_ms;
     
     const basePairString = `${sessionData.participant_id}_${sessionData.session_id}_${sessionData.puzzle_archetype}`;
     let baseSeed = getSeedFromString(basePairString) % 2147483647;
@@ -453,14 +468,13 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     sessionData.resets_used++;
     initializePuzzle();
 });
-// Add this near your other initialization code
-document.getElementById('version-display').innerText = "v1.0.2 (Hinge-Beta)";
 
 function executePuzzleTeardown(status) {
     sessionData.timestamp_end = new Date().toISOString();
     sessionData.completion_time_ms = Math.round(performance.now() - startTime);
     sessionData.completion_status = status;
 
+    // Save temporary state metrics down immediately
     const runKey = `probe_${sessionData.participant_id}_${sessionData.session_id}_${sessionData.probe_phase}`;
     localStorage.setItem(runKey, JSON.stringify({...sessionData}));
 
@@ -470,8 +484,13 @@ function executePuzzleTeardown(status) {
     
     calculateSessionDeltas();
     
-    // Once the puzzle tears down, route to the Post-Session Questionnaire!
-    showQuestionnaire('post');
+    // FIXED: Instead of hijacking the completion UI loop with the questionnaire immediately,
+    // evaluate the state logic. Pre-Session routes to dashboard. Post-Session routes to survey.
+    if (sessionData.probe_phase === 'post') {
+        showQuestionnaire('post');
+    } else {
+        switchScreen('screen-solved');
+    }
 }
 
 function calculateSessionDeltas() {
